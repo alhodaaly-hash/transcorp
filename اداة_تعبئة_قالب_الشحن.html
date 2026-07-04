@@ -191,10 +191,6 @@
     <h2><span class="step-num">4</span> فلترة الطلبات</h2>
     <div class="grid">
       <div class="field">
-        <label>سحب الطلبات فقط إذا كانت شركة الشحن تحتوي على:</label>
-        <input type="text" id="f-carrierFilter" value="ترانسكورب">
-      </div>
-      <div class="field">
         <label>الصفوف الحالية في القالب</label>
         <select id="f-clearMode">
           <option value="clear">حذفها والبدء بالطلبات الجديدة فقط</option>
@@ -203,6 +199,12 @@
       </div>
     </div>
     <div class="field" style="margin-top:6px;">
+      <label>شركة الشحن / طريقة التوصيل (اختاري الشركات المطلوب تصديرها، أو أبقي "تحديد الكل")</label>
+      <div id="carrier-filter-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;">
+        <div style="font-size:12px;color:var(--muted);">ارفعي ملف المصدر أولاً لعرض شركات الشحن المتوفرة</div>
+      </div>
+    </div>
+    <div class="field" style="margin-top:14px;">
       <label>حالة الطلب (اختاري الحالات المطلوب تصديرها، أو أبقي "تحديد الكل")</label>
       <div id="status-filter-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;">
         <div style="font-size:12px;color:var(--muted);">ارفعي ملف المصدر أولاً لعرض الحالات المتوفرة</div>
@@ -457,52 +459,84 @@ async function handleSourceFile(file){
     setStatus('تنبيه: لم يتم إيجاد عمود شركة الشحن في هذا الملف — سيتم تجاهل فلترة شركة الشحن وتضمين كل الطلبات.', 'warn');
   }
   document.getElementById('fname-source').textContent = file.name;
-  renderStatusFilters(tallyStatuses());
+  renderCarrierFilters(tallyColumnValues('carrier'));
+  renderStatusFilters(tallyColumnValues('status'));
   updateReport();
   maybeEnableRun();
 }
 
-function tallyStatuses(){
+// Tallies distinct values (with counts) found in a given detected source column,
+// used to build the carrier / status checklist filters.
+function tallyColumnValues(colKey){
   const scol = state.colMapSrc;
   const counts = {};
-  if (!scol.status) return counts;
+  const colIdx = scol[colKey];
+  if (!colIdx) return counts;
   const headerRow = state.srcHeaderRow || 1;
   state.sourceWs.eachRow((row, rowNumber) => {
     if (rowNumber <= headerRow) return;
     if (!(row.actualCellCount > 0)) return;
-    const v = cleanStr(row.getCell(scol.status).value) || '(فارغ)';
+    const v = cleanStr(row.getCell(colIdx).value) || '(فارغ)';
     counts[v] = (counts[v] || 0) + 1;
   });
   return counts;
 }
 
-function renderStatusFilters(counts){
-  const container = document.getElementById('status-filter-list');
+// Generic checklist renderer shared by the carrier and status filters.
+function renderChecklist(containerId, counts, chkClass, allChkId, emptyMsg, isDefaultChecked){
+  const container = document.getElementById(containerId);
   const keys = Object.keys(counts);
   if (keys.length === 0){
-    container.innerHTML = '<div style="font-size:12px;color:var(--muted);">لا يوجد عمود "حالة الطلب" في هذا الملف — سيتم تصدير كل الطلبات بغض النظر عن الحالة.</div>';
+    container.innerHTML = `<div style="font-size:12px;color:var(--muted);">${emptyMsg}</div>`;
     return;
   }
-  let html = `<label class="chip master"><input type="checkbox" id="status-all-chk" checked> تحديد الكل</label>`;
+  const allDefaultChecked = keys.every(k => isDefaultChecked(k));
+  let html = `<label class="chip master"><input type="checkbox" id="${allChkId}" ${allDefaultChecked ? 'checked' : ''}> تحديد الكل</label>`;
   keys.forEach(k => {
-    html += `<label class="chip"><input type="checkbox" class="status-chk" value="${k}" checked> ${k} (${counts[k]})</label>`;
+    html += `<label class="chip"><input type="checkbox" class="${chkClass}" value="${k}" ${isDefaultChecked(k) ? 'checked' : ''}> ${k} (${counts[k]})</label>`;
   });
   container.innerHTML = html;
-  document.getElementById('status-all-chk').addEventListener('change', e => {
-    document.querySelectorAll('.status-chk').forEach(b => { b.checked = e.target.checked; });
+  document.getElementById(allChkId).addEventListener('change', e => {
+    container.querySelectorAll('.'+chkClass).forEach(b => { b.checked = e.target.checked; });
     updateReport();
   });
-  document.querySelectorAll('.status-chk').forEach(b => b.addEventListener('change', () => {
-    const all = document.querySelectorAll('.status-chk');
+  container.querySelectorAll('.'+chkClass).forEach(b => b.addEventListener('change', () => {
+    const all = container.querySelectorAll('.'+chkClass);
     const allChecked = Array.from(all).every(x => x.checked);
-    document.getElementById('status-all-chk').checked = allChecked;
+    document.getElementById(allChkId).checked = allChecked;
     updateReport();
   }));
+}
+
+function renderStatusFilters(counts){
+  renderChecklist(
+    'status-filter-list', counts, 'status-chk', 'status-all-chk',
+    'لا يوجد عمود "حالة الطلب" في هذا الملف — سيتم تصدير كل الطلبات بغض النظر عن الحالة.',
+    () => true // every status defaults to selected
+  );
+}
+
+function renderCarrierFilters(counts){
+  const keys = Object.keys(counts);
+  const anyTranscorp = keys.some(k => k.includes('ترانسكورب'));
+  renderChecklist(
+    'carrier-filter-list', counts, 'carrier-chk', 'carrier-all-chk',
+    'لا يوجد عمود شركة شحن في هذا الملف — سيتم تصدير كل الطلبات بغض النظر عن شركة الشحن.',
+    k => anyTranscorp ? k.includes('ترانسكورب') : true
+  );
 }
 
 function getAllowedStatuses(){
   const boxes = document.querySelectorAll('.status-chk');
   if (boxes.length === 0) return null; // no status column -> no filtering
+  const set = new Set();
+  boxes.forEach(b => { if (b.checked) set.add(b.value); });
+  return set;
+}
+
+function getAllowedCarriers(){
+  const boxes = document.querySelectorAll('.carrier-chk');
+  if (boxes.length === 0) return null; // no carrier column -> no filtering
   const set = new Set();
   boxes.forEach(b => { if (b.checked) set.add(b.value); });
   return set;
@@ -518,7 +552,7 @@ function splitDistrict(address){
 }
 
 // Core extraction shared by the live report and the actual export
-function extractMatched(carrierText, allowedStatuses){
+function extractMatched(allowedCarriers, allowedStatuses){
   const scol = state.colMapSrc;
   const matched = [];
   let totalDataRows = 0;
@@ -531,9 +565,9 @@ function extractMatched(carrierText, allowedStatuses){
     // If no carrier column was detected in this file, don't block export on it —
     // treat every row as passing the carrier filter instead.
     let carrierOk = true;
-    if (scol.carrier){
-      const carrier = cleanStr(row.getCell(scol.carrier).value);
-      carrierOk = !!carrier && !!carrierText && carrier.includes(carrierText);
+    if (scol.carrier && allowedCarriers){
+      const carrier = cleanStr(row.getCell(scol.carrier).value) || '(فارغ)';
+      carrierOk = allowedCarriers.has(carrier);
     }
     if (!carrierOk) return;
     carrierMatchedCount++;
@@ -560,11 +594,11 @@ function updateReport(){
   invalidatePreview();
   const el = document.getElementById('filter-report');
   if (!state.sourceWs){ el.textContent = 'ارفعي الملفين لعرض تقرير عدد الطلبات التي سيتم تصديرها'; return; }
-  const carrierText = document.getElementById('f-carrierFilter').value.trim();
-  const allowed = getAllowedStatuses();
-  const { totalDataRows, carrierMatchedCount, matched } = extractMatched(carrierText, allowed);
+  const allowedCarriers = getAllowedCarriers();
+  const allowedStatuses = getAllowedStatuses();
+  const { totalDataRows, carrierMatchedCount, matched } = extractMatched(allowedCarriers, allowedStatuses);
   const carrierLabel = state.colMapSrc.carrier
-    ? `المطابقة لشركة الشحن "${carrierText}": <b>${carrierMatchedCount}</b>`
+    ? `المطابقة لشركات الشحن المحددة: <b>${carrierMatchedCount}</b>`
     : `لا يوجد عمود شركة شحن في هذا الملف — تم تجاهل هذا الفلتر (${carrierMatchedCount} صف)`;
   el.innerHTML = `إجمالي طلبات الملف: <b>${totalDataRows}</b> &nbsp;|&nbsp; ${carrierLabel} &nbsp;|&nbsp; سيتم تصديرها فعلياً بعد فلترة الحالة: <b style="color:var(--ok)">${matched.length}</b>`;
 }
@@ -586,9 +620,9 @@ function buildPreview(){
     document.getElementById('f-deliveryDate').focus();
     return;
   }
-  const carrierText = document.getElementById('f-carrierFilter').value.trim();
-  const allowed = getAllowedStatuses();
-  const { matched } = extractMatched(carrierText, allowed);
+  const allowedCarriers = getAllowedCarriers();
+  const allowedStatuses = getAllowedStatuses();
+  const { matched } = extractMatched(allowedCarriers, allowedStatuses);
   state.previewRows = matched.map(m => ({ ...m, include:true }));
   renderPreviewTable();
   updateRunButtonState();
@@ -694,7 +728,6 @@ function setupDrop(dropId, inputId, handler){
 
 setupDrop('drop-template','file-template', handleTemplateFile);
 setupDrop('drop-source','file-source', handleSourceFile);
-document.getElementById('f-carrierFilter').addEventListener('input', updateReport);
 
 // --- Saved sender (Ship From) profiles ---------------------------------
 // Typing/selecting a saved name auto-fills the rest of the Ship From fields.
