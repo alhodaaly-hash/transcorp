@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>أداة تعبئة قالب الشحن - تمرولة / ترانسكوب</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+  :root{
+    --brand:#8a5a2b;
+    --brand-dark:#5e3b1a;
+    --bg:#faf6f1;
+    --card:#ffffff;
+    --border:#e3d9cc;
+    --text:#2b2320;
+    --muted:#7a6f64;
+    --ok:#1f8a4c;
+    --err:#c0392b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:24px; background:var(--bg); color:var(--text);
+    font-family:"Segoe UI", Tahoma, Arial, sans-serif;
+    display:flex; justify-content:center;
+  }
+  .wrap{ width:100%; max-width:900px; }
+  h1{ font-size:22px; margin:0 0 4px; color:var(--brand-dark); }
+  .sub{ color:var(--muted); margin:0 0 24px; font-size:14px; }
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:20px; margin-bottom:18px;
+  }
+  .card h2{ font-size:16px; margin:0 0 14px; color:var(--brand-dark); display:flex; align-items:center; gap:8px; }
+  .step-num{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:24px; height:24px; border-radius:50%; background:var(--brand); color:#fff;
+    font-size:13px; flex-shrink:0;
+  }
+  .drop{
+    border:2px dashed var(--border); border-radius:10px; padding:22px; text-align:center;
+    cursor:pointer; transition:.15s; background:#fffefc;
+  }
+  .drop:hover, .drop.drag{ border-color:var(--brand); background:#fbf3ea; }
+  .drop input{ display:none; }
+  .drop .fname{ margin-top:8px; font-size:13px; color:var(--brand-dark); font-weight:600; }
+  .drop .hint{ font-size:12px; color:var(--muted); }
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; }
+  .grid.wide{ grid-template-columns:1fr 1fr 1fr; }
+  label{ font-size:12.5px; color:var(--muted); display:block; margin-bottom:4px; }
+  input[type=text], input[type=date], input[type=tel], select{
+    width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:8px;
+    font-size:13.5px; font-family:inherit; background:#fff; color:var(--text);
+  }
+  input:focus, select:focus{ outline:none; border-color:var(--brand); }
+  .field{ margin-bottom:10px; }
+  .checkbox-row{ display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; color:var(--text); }
+  .checkbox-row input{ width:auto; }
+  button.primary{
+    width:100%; padding:13px; border:none; border-radius:10px; background:var(--brand);
+    color:#fff; font-size:15px; font-weight:600; cursor:pointer; transition:.15s;
+  }
+  button.primary:hover{ background:var(--brand-dark); }
+  button.primary:disabled{ background:#c9beb2; cursor:not-allowed; }
+  .status{ margin-top:14px; font-size:13.5px; line-height:1.9; white-space:pre-wrap; }
+  .status .ok{ color:var(--ok); }
+  .status .err{ color:var(--err); }
+  .status .warn{ color:#b8860b; }
+  .download-box{
+    margin-top:14px; padding:14px; background:#eef8f0; border:1px solid #c8e8d0; border-radius:10px;
+    display:none; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .download-box a{
+    background:var(--ok); color:#fff; text-decoration:none; padding:9px 16px; border-radius:8px;
+    font-size:13.5px; font-weight:600;
+  }
+  .col-detect{ font-size:12px; color:var(--muted); margin-top:8px; }
+  .col-detect span{ display:inline-block; margin:2px 8px 2px 0; padding:2px 8px; background:#f1ece4; border-radius:6px; }
+  .col-detect span.miss{ background:#fbe4e1; color:var(--err); }
+  fieldset{ border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-top:4px; }
+  legend{ font-size:12.5px; color:var(--brand-dark); padding:0 6px; font-weight:600; }
+  input[readonly]{ background:#f1ece4; color:var(--muted); cursor:not-allowed; }
+  .chip{
+    display:inline-flex; align-items:center; gap:6px; font-size:12.5px; padding:5px 10px;
+    border:1px solid var(--border); border-radius:20px; background:#fff; cursor:pointer;
+  }
+  .chip input{ width:auto; }
+  .chip.master{ background:#f1ece4; font-weight:600; }
+  .filter-report{
+    font-size:13px; color:var(--brand-dark); background:#f6efe6; border:1px solid var(--border);
+    border-radius:8px; padding:10px 12px; line-height:1.8;
+  }
+  button.secondary{
+    padding:9px 16px; border:1px solid var(--brand); border-radius:8px; background:#fff;
+    color:var(--brand-dark); font-size:13.5px; font-weight:600; cursor:pointer; transition:.15s;
+  }
+  button.secondary:hover{ background:#fbf3ea; }
+  .preview-wrap{ overflow-x:auto; margin-top:12px; border:1px solid var(--border); border-radius:10px; }
+  table.preview-table{ border-collapse:collapse; width:100%; font-size:12.5px; }
+  table.preview-table th, table.preview-table td{
+    border-bottom:1px solid var(--border); padding:6px 8px; text-align:right; white-space:nowrap;
+  }
+  table.preview-table th{ background:#f6efe6; color:var(--brand-dark); position:sticky; top:0; }
+  table.preview-table td input[type=text]{
+    width:100%; min-width:70px; padding:5px 6px; font-size:12px; border:1px solid var(--border); border-radius:6px;
+  }
+  table.preview-table td.addr-cell input{ min-width:220px; }
+  table.preview-table tr.excluded{ opacity:.4; }
+  .row-btn{
+    border:none; background:#f1ece4; border-radius:6px; width:24px; height:24px; cursor:pointer; font-size:12px;
+    margin:0 1px; color:var(--brand-dark);
+  }
+  .row-btn:hover{ background:#e3d9cc; }
+  .row-btn.del{ color:var(--err); }
+  .preview-note{ font-size:12px; color:var(--muted); margin-top:8px; }
+  .preview-empty{ font-size:13px; color:var(--muted); padding:16px; text-align:center; }
+  .required-warning{
+    margin-top:12px; padding:10px 14px; background:#fdecea; border:1px solid #f2b7ae; color:var(--err);
+    border-radius:8px; font-size:13px; font-weight:600;
+  }
+  input.invalid{ border-color:var(--err); background:#fff6f5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>أداة تعبئة قالب الشحن تلقائياً</h1>
+  <p class="sub">ارفعي ملف القالب (الوجهة) وملف الطلبات (المصدر)، وستقوم الأداة بسحب البيانات المطابقة وتعبئتها في القالب تلقائياً — كل شيء يعمل داخل المتصفح، بدون رفع أي ملف لأي سيرفر.</p>
+
+  <div class="card">
+    <h2><span class="step-num">1</span> ملف القالب (الوجهة)</h2>
+    <div class="drop" id="drop-template">
+      <input type="file" id="file-template" accept=".xlsx">
+      <div>اسحبي الملف هنا أو اضغطي للاختيار</div>
+      <div class="hint">ملف Excel يحتوي أعمدة القالب (Merchant, Delivery Date, Consignee Name...)</div>
+      <div class="fname" id="fname-template"></div>
+    </div>
+    <div class="col-detect" id="detect-template"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">2</span> ملف الطلبات (المصدر)</h2>
+    <div class="drop" id="drop-source">
+      <input type="file" id="file-source" accept=".xlsx">
+      <div>اسحبي الملف هنا أو اضغطي للاختيار</div>
+      <div class="hint">ملف تصدير الطلبات (رقم الطلب، اسم العميل، العنوان، شركة الشحن...)</div>
+      <div class="fname" id="fname-source"></div>
+    </div>
+    <div class="col-detect" id="detect-source"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">3</span> المعلومات الثابتة (قيم ثابتة للعملية دائماً، ويمكن تعديلها يدوياً عند الحاجة)</h2>
+    <fieldset>
+      <legend>معلومات المرسل (Ship From)</legend>
+      <p class="preview-note" style="margin:0 0 10px;">اختاري اسم المرسل المحفوظ من القائمة فتُملأ باقي الحقول تلقائياً من بياناته الثابتة، ويمكنك تعديل أي حقل يدوياً بعدها.</p>
+      <div class="grid wide">
+        <div class="field"><label>الاسم</label>
+          <select id="f-shipName"></select>
+        </div>
+        <div class="field"><label>الهاتف</label><input type="text" id="f-shipPhone" value="966566806179"></div>
+        <div class="field"><label>المدينة</label><input type="text" id="f-shipCity" value="الرياض"></div>
+      </div>
+      <div class="grid wide">
+        <div class="field"><label>الحي</label><input type="text" id="f-shipDistrict" value="حي الجزيرة"></div>
+        <div class="field"><label>الدولة</label><input type="text" id="f-shipCountry" value="SA"></div>
+        <div class="field"><label>العنوان</label><input type="text" id="f-shipAddress" value="JRX4+P6R الجزيرة، الرياض"></div>
+      </div>
+    </fieldset>
+    <fieldset style="margin-top:12px;">
+      <legend>إعدادات الشحن الثابتة</legend>
+      <div class="grid wide">
+        <div class="field"><label>Merchant (ثابت لكل الملف)</label><input type="text" id="f-merchant" value="80" readonly></div>
+        <div class="field"><label>Delivery Mode</label><input type="text" id="f-mode" value="EXPRESS"></div>
+        <div class="field"><label>Delivery Type</label><input type="text" id="f-type" value="DELIVERY"></div>
+      </div>
+      <div class="grid wide">
+        <div class="field"><label>After Time</label><input type="text" id="f-afterTime" value="10:00" placeholder="10:00"></div>
+        <div class="field"><label>Before Time</label><input type="text" id="f-beforeTime" value="18:00" placeholder="18:00"></div>
+        <div class="field">
+          <label>تاريخ التسليم لكل الصفوف (إلزامي)</label>
+          <input type="date" id="f-deliveryDate">
+        </div>
+      </div>
+      <div class="grid wide">
+        <div class="field"><label>الوزن (كجم) — ثابت لكل الطلبات</label><input type="text" id="f-weight" value="5"></div>
+      </div>
+      <div class="required-warning" id="date-warning" style="display:none;">⚠️ يجب تحديد تاريخ التسليم قبل المتابعة — لا يمكن إكمال العملية بدونه.</div>
+    </fieldset>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">4</span> فلترة الطلبات</h2>
+    <div class="grid">
+      <div class="field">
+        <label>سحب الطلبات فقط إذا كانت شركة الشحن تحتوي على:</label>
+        <input type="text" id="f-carrierFilter" value="ترانسكورب">
+      </div>
+      <div class="field">
+        <label>الصفوف الحالية في القالب</label>
+        <select id="f-clearMode">
+          <option value="clear">حذفها والبدء بالطلبات الجديدة فقط</option>
+          <option value="append">الإبقاء عليها وإضافة الطلبات الجديدة بعدها</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" style="margin-top:6px;">
+      <label>حالة الطلب (اختاري الحالات المطلوب تصديرها، أو أبقي "تحديد الكل")</label>
+      <div id="status-filter-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;">
+        <div style="font-size:12px;color:var(--muted);">ارفعي ملف المصدر أولاً لعرض الحالات المتوفرة</div>
+      </div>
+    </div>
+    <div class="field" style="margin-top:12px;">
+      <div class="filter-report" id="filter-report">ارفعي الملفين لعرض تقرير عدد الطلبات التي سيتم تصديرها</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">5</span> معاينة الطلبات وتعديلها قبل التصدير</h2>
+    <p class="sub" style="margin:0 0 10px;">اضغطي "تحديث المعاينة" لعرض كل صف سيُصدَّر. يمكنك التعديل مباشرة في أي خانة، استبعاد صف بإلغاء تحديد المربع، أو تغيير ترتيب الصفوف بالأسهم.</p>
+    <button class="secondary" id="btn-preview" disabled>تحديث المعاينة</button>
+    <div id="preview-wrap"></div>
+    <div class="preview-note" id="preview-note"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">6</span> تنفيذ</h2>
+    <button class="primary" id="btn-run" disabled>ارفعي الملفين أولاً</button>
+    <div class="status" id="status"></div>
+    <div class="download-box" id="download-box">
+      <div>الملف جاهز ✅</div>
+      <a id="download-link" download="ترانسكوب.xlsx">تحميل الملف الناتج</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const state = {
+  templateWb:null, templateWs:null, sourceWb:null, sourceWs:null,
+  colMapTpl:null, colMapSrc:null, previewRows:null,
+  tplHeaderRow:1, srcHeaderRow:1,
+};
+
+function cleanStr(v){
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'object' && v.text !== undefined) v = v.text;
+  if (typeof v === 'object' && v.richText) v = v.richText.map(r=>r.text).join('');
+  let s = String(v).trim();
+  if (s.startsWith("'") && s.endsWith("'")) s = s.slice(1,-1);
+  return s;
+}
+
+function excelTimeToDate(v){
+  // Returns a JS "time of day" value for an ExcelJS time cell. Accepts "H:MM" or
+  // "H:MM:SS" and always drops seconds, so the exported time is always a clean
+  // hh:mm value and never carries stray seconds from a pasted/odd input.
+  if (v instanceof Date) return new Date(1899,11,30, v.getHours(), v.getMinutes(), 0);
+  const m = typeof v === 'string' && v.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (m){
+    return new Date(1899,11,30, parseInt(m[1],10), parseInt(m[2],10), 0);
+  }
+  return v;
+}
+
+function setStatus(html, cls){
+  const el = document.getElementById('status');
+  el.innerHTML += `<div class="${cls||''}">${html}</div>`;
+}
+function clearStatus(){ document.getElementById('status').innerHTML=''; }
+
+function maybeEnableRun(){
+  refreshDateWarning();
+  const previewBtn = document.getElementById('btn-preview');
+  const bothFilesLoaded = state.templateWs && state.sourceWs;
+  previewBtn.disabled = !(bothFilesLoaded && isDeliveryDateSet());
+  updateRunButtonState();
+}
+
+function updateRunButtonState(){
+  const btn = document.getElementById('btn-run');
+  const bothFilesLoaded = state.templateWs && state.sourceWs;
+  const hasPreview = Array.isArray(state.previewRows) && state.previewRows.some(r => r.include);
+  if (bothFilesLoaded && !isDeliveryDateSet()){
+    btn.disabled = true;
+    btn.textContent = 'حددي تاريخ التسليم أولاً';
+  } else if (bothFilesLoaded && hasPreview){
+    btn.disabled = false;
+    btn.textContent = 'تنفيذ العملية وتحميل الملف';
+  } else {
+    btn.disabled = true;
+    btn.textContent = bothFilesLoaded ? 'حدّثي المعاينة أولاً' : 'ارفعي الملفين أولاً';
+  }
+}
+
+// --- Generic, tolerant column detection -----------------------------------
+// Normalizes Arabic/English header text so minor spelling/spacing differences
+// across different store exports (Salla, Zid, custom sheets...) don't break detection.
+function normalizeHeader(s){
+  if (s === null || s === undefined) return '';
+  let t = String(s).trim().toLowerCase();
+  t = t.replace(/[ً-ٰٟـ]/g, ''); // strip Arabic diacritics/tatweel
+  t = t.replace(/[إأآا]/g, 'ا');
+  t = t.replace(/ى/g, 'ي');
+  t = t.replace(/ة/g, 'ه');
+  t = t.replace(/\s+/g, ' ');
+  return t.trim();
+}
+
+function tokenize(norm){
+  return norm.split(/[^a-z0-9؀-ۿ]+/).filter(Boolean);
+}
+
+// Short keywords (<=3 chars, e.g. "cod", "sms", "qty") must match a whole token
+// to avoid false positives (e.g. "cod" inside "code"). Longer keywords may
+// match as a substring anywhere in the header.
+function keywordMatches(tokens, norm, kw){
+  const nk = normalizeHeader(kw);
+  if (!nk) return false;
+  if (nk.length <= 3) return tokens.includes(nk);
+  return norm.includes(nk);
+}
+
+// spec = { exact:[...], any:[[kw,kw],[kw],...] } — exact matches win first,
+// then any keyword-group where ALL keywords are present (in any order) matches.
+function findColBySpec(headerRow, spec){
+  const count = headerRow.cellCount || headerRow.actualCellCount || 80;
+  const cells = [];
+  for (let i=1;i<=count;i++){
+    cells.push({ i, norm: normalizeHeader(headerRow.getCell(i).value) });
+  }
+  const exactNorm = (spec.exact||[]).map(normalizeHeader);
+  for (const c of cells){
+    if (c.norm && exactNorm.includes(c.norm)) return c.i;
+  }
+  for (const c of cells){
+    if (!c.norm) continue;
+    const tokens = tokenize(c.norm);
+    if ((spec.any||[]).some(group => group.every(kw => keywordMatches(tokens, c.norm, kw)))) return c.i;
+  }
+  return null;
+}
+
+function mapAllCols(headerRow, specs){
+  const colMap = {}; let count = 0;
+  for (const k in specs){
+    colMap[k] = findColBySpec(headerRow, specs[k]);
+    if (colMap[k]) count++;
+  }
+  return { colMap, count };
+}
+
+// Some exports put a title/merged row above the real header. Scan the first
+// few rows and keep whichever one matches the most known fields.
+function detectHeaderRow(ws, specs, maxScan){
+  maxScan = maxScan || 5;
+  let best = { row: 1, count: -1, colMap: {} };
+  const scanRows = Math.min(maxScan, ws.rowCount || maxScan);
+  for (let r=1; r<=scanRows; r++){
+    const headerRow = ws.getRow(r);
+    if (!headerRow || (headerRow.actualCellCount||0) === 0) continue;
+    const { colMap, count } = mapAllCols(headerRow, specs);
+    if (count > best.count) best = { row: r, count, colMap };
+  }
+  return best;
+}
+
+const TPL_SPECS = {
+  merchant: { exact:['Merchant'], any:[['merchant']] },
+  deliveryDate: { exact:['Delivery Date'], any:[['delivery','date']] },
+  afterTime: { exact:['After Time'], any:[['after','time']] },
+  beforeTime: { exact:['Before Time'], any:[['before','time']] },
+  deliveryMode: { exact:['Delivery Mode'], any:[['delivery','mode']] },
+  deliveryType: { exact:['Delivery Type'], any:[['delivery','type']] },
+  cod: { exact:['COD'], any:[['cod']] },
+  orderNumber: { exact:['Order Number'], any:[['order','number'],['order','id'],['order','no']] },
+  quantity: { exact:['Quantity'], any:[['quantity'],['qty']] },
+  weight: { exact:['Weight'], any:[['weight']] },
+  sms: { exact:['SMS'], any:[['sms']] },
+  name: { exact:['Consignee Name'], any:[['consignee','name'],['receiver','name'],['customer','name']] },
+  phone: { exact:['Phone'], any:[['phone'],['mobile']] },
+  address: { exact:['Address'], any:[['address']] },
+  district: { exact:['District'], any:[['district']] },
+  city: { exact:['City'], any:[['city']] },
+  country: { exact:['Country'], any:[['country']] },
+  shipName: { exact:['Ship From Name'], any:[['ship','from','name']] },
+  shipPhone: { exact:['Ship From Phone'], any:[['ship','from','phone']] },
+  shipAddress: { exact:['Ship From Address'], any:[['ship','from','address']] },
+  shipDistrict: { exact:['Ship From District'], any:[['ship','from','district']] },
+  shipCity: { exact:['Ship From City'], any:[['ship','from','city']] },
+  shipCountry: { exact:['Ship From Country'], any:[['ship','from','country']] },
+};
+
+const SRC_SPECS = {
+  orderNo: { exact:['رقم الطلب','Order Number','Order ID','Order No'], any:[['رقم','طلب'],['order','number'],['order','id'],['order','no']] },
+  name: { exact:['اسم العميل','اسم المستلم','Customer Name','Consignee Name','Receiver Name'], any:[['اسم','عميل'],['اسم','مستلم'],['اسم','زبون'],['customer','name'],['receiver','name']] },
+  phone: { exact:['رقم الجوال','رقم الهاتف','جوال العميل','Phone','Mobile','Mobile Number'], any:[['جوال'],['هاتف'],['موبايل'],['phone'],['mobile']] },
+  city: { exact:['المدينة','مدينة العميل','City'], any:[['مدينة'],['city']] },
+  country: { exact:['الدولة','Country'], any:[['دولة'],['country']] },
+  address: { exact:['عنوان العميل','العنوان','عنوان الشحن','Address','Shipping Address'], any:[['عنوان'],['address']] },
+  carrier: { exact:['شركة الشحن / الفرع','شركة الشحن','شركة التوصيل','الناقل','Shipping Company','Carrier'], any:[['شركة','شحن'],['شركه','شحن'],['شركة','توصيل'],['ناقل'],['مندوب','شحن'],['carrier'],['shipping','company']] },
+  status: { exact:['حالة الطلب','حالة الشحنة','Order Status','Status'], any:[['حاله','طلب'],['حالة','طلب'],['order','status']] },
+};
+
+function renderDetect(elId, colMap, labelMap){
+  const el = document.getElementById(elId);
+  el.innerHTML = Object.keys(colMap).map(k=>{
+    const found = colMap[k] !== null && colMap[k] !== undefined;
+    return `<span class="${found?'':'miss'}">${labelMap[k]||k}: ${found? '✓':'غير موجود'}</span>`;
+  }).join(' ');
+}
+
+async function handleTemplateFile(file){
+  const buf = await file.arrayBuffer();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buf);
+  const ws = wb.worksheets[0];
+  state.templateWb = wb; state.templateWs = ws;
+
+  // Scan the first few rows in case there's a title/merged row above the real header,
+  // so the tool adapts to slightly different template layouts automatically.
+  const detected = detectHeaderRow(ws, TPL_SPECS);
+  state.tplHeaderRow = detected.row;
+  state.colMapTpl = detected.colMap;
+
+  renderDetect('detect-template', detected.colMap, {
+    merchant:'Merchant', deliveryDate:'Delivery Date', afterTime:'After Time', beforeTime:'Before Time',
+    deliveryMode:'Delivery Mode', deliveryType:'Delivery Type', cod:'COD', orderNumber:'Order Number',
+    quantity:'Quantity', weight:'Weight', sms:'SMS', name:'Consignee Name', phone:'Phone',
+    address:'Address', district:'District', city:'City', country:'Country', shipName:'Ship From Name',
+    shipPhone:'Ship From Phone', shipAddress:'Ship From Address', shipDistrict:'Ship From District',
+    shipCity:'Ship From City', shipCountry:'Ship From Country'
+  });
+
+  // Fixed operation settings (Ship From, Merchant, times, mode/type) are now permanent
+  // defaults baked into the form itself and are NOT overwritten from the uploaded
+  // template's example row anymore, so the same operation runs identically every time.
+  document.getElementById('f-merchant').value = '80';
+
+  document.getElementById('fname-template').textContent = file.name;
+  maybeEnableRun();
+}
+
+async function handleSourceFile(file){
+  const buf = await file.arrayBuffer();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buf);
+  const ws = wb.worksheets[0];
+  state.sourceWb = wb; state.sourceWs = ws;
+
+  const detected = detectHeaderRow(ws, SRC_SPECS);
+  state.srcHeaderRow = detected.row;
+  state.colMapSrc = detected.colMap;
+
+  renderDetect('detect-source', detected.colMap, {
+    orderNo:'رقم الطلب', name:'اسم العميل', phone:'رقم الجوال', city:'المدينة', country:'الدولة',
+    address:'عنوان العميل', carrier:'شركة الشحن', status:'حالة الطلب'
+  });
+  if (!detected.colMap.carrier){
+    setStatus('تنبيه: لم يتم إيجاد عمود شركة الشحن في هذا الملف — سيتم تجاهل فلترة شركة الشحن وتضمين كل الطلبات.', 'warn');
+  }
+  document.getElementById('fname-source').textContent = file.name;
+  renderStatusFilters(tallyStatuses());
+  updateReport();
+  maybeEnableRun();
+}
+
+function tallyStatuses(){
+  const scol = state.colMapSrc;
+  const counts = {};
+  if (!scol.status) return counts;
+  const headerRow = state.srcHeaderRow || 1;
+  state.sourceWs.eachRow((row, rowNumber) => {
+    if (rowNumber <= headerRow) return;
+    if (!(row.actualCellCount > 0)) return;
+    const v = cleanStr(row.getCell(scol.status).value) || '(فارغ)';
+    counts[v] = (counts[v] || 0) + 1;
+  });
+  return counts;
+}
+
+function renderStatusFilters(counts){
+  const container = document.getElementById('status-filter-list');
+  const keys = Object.keys(counts);
+  if (keys.length === 0){
+    container.innerHTML = '<div style="font-size:12px;color:var(--muted);">لا يوجد عمود "حالة الطلب" في هذا الملف — سيتم تصدير كل الطلبات بغض النظر عن الحالة.</div>';
+    return;
+  }
+  let html = `<label class="chip master"><input type="checkbox" id="status-all-chk" checked> تحديد الكل</label>`;
+  keys.forEach(k => {
+    html += `<label class="chip"><input type="checkbox" class="status-chk" value="${k}" checked> ${k} (${counts[k]})</label>`;
+  });
+  container.innerHTML = html;
+  document.getElementById('status-all-chk').addEventListener('change', e => {
+    document.querySelectorAll('.status-chk').forEach(b => { b.checked = e.target.checked; });
+    updateReport();
+  });
+  document.querySelectorAll('.status-chk').forEach(b => b.addEventListener('change', () => {
+    const all = document.querySelectorAll('.status-chk');
+    const allChecked = Array.from(all).every(x => x.checked);
+    document.getElementById('status-all-chk').checked = allChecked;
+    updateReport();
+  }));
+}
+
+function getAllowedStatuses(){
+  const boxes = document.querySelectorAll('.status-chk');
+  if (boxes.length === 0) return null; // no status column -> no filtering
+  const set = new Set();
+  boxes.forEach(b => { if (b.checked) set.add(b.value); });
+  return set;
+}
+
+function splitDistrict(address){
+  if (!address) return null;
+  // Prefer the Arabic comma used by most Saudi address exports; fall back to a
+  // plain comma so the tool still adapts to differently-formatted addresses.
+  const sep = address.includes('،') ? '،' : (address.includes(',') ? ',' : null);
+  if (!sep) return null;
+  return address.split(sep)[0].trim() + ' ';
+}
+
+// Core extraction shared by the live report and the actual export
+function extractMatched(carrierText, allowedStatuses){
+  const scol = state.colMapSrc;
+  const matched = [];
+  let totalDataRows = 0;
+  let carrierMatchedCount = 0;
+  const headerRow = state.srcHeaderRow || 1;
+  state.sourceWs.eachRow((row, rowNumber) => {
+    if (rowNumber <= headerRow) return;
+    if (!(row.actualCellCount > 0)) return; // skip fully blank rows
+    totalDataRows++;
+    // If no carrier column was detected in this file, don't block export on it —
+    // treat every row as passing the carrier filter instead.
+    let carrierOk = true;
+    if (scol.carrier){
+      const carrier = cleanStr(row.getCell(scol.carrier).value);
+      carrierOk = !!carrier && !!carrierText && carrier.includes(carrierText);
+    }
+    if (!carrierOk) return;
+    carrierMatchedCount++;
+    const statusVal = scol.status ? (cleanStr(row.getCell(scol.status).value) || '(فارغ)') : null;
+    if (scol.status && allowedStatuses && !allowedStatuses.has(statusVal)) return;
+    const orderNoRaw = scol.orderNo ? cleanStr(row.getCell(scol.orderNo).value) : null;
+    const orderNo = orderNoRaw && /^\d+$/.test(orderNoRaw) ? parseInt(orderNoRaw,10) : orderNoRaw;
+    if (!orderNo) return; // a row with no order number isn't a real data row
+    const name = scol.name ? cleanStr(row.getCell(scol.name).value) : null;
+    const phone = scol.phone ? normalizePhone(row.getCell(scol.phone).value) : null;
+    const city = scol.city ? cleanStr(row.getCell(scol.city).value) : null;
+    const countryRaw = scol.country ? cleanStr(row.getCell(scol.country).value) : null;
+    const country = COUNTRY_MAP[countryRaw] || countryRaw;
+    const address = scol.address ? cleanStr(row.getCell(scol.address).value) : null;
+    const district = splitDistrict(address);
+    const weightField = parseFloat(document.getElementById('f-weight').value);
+    const weight = isNaN(weightField) ? 5 : weightField;
+    matched.push({ orderNo, name, phone, city, country, address, district, weight, qty:1, status: statusVal });
+  });
+  return { totalDataRows, carrierMatchedCount, matched };
+}
+
+function updateReport(){
+  invalidatePreview();
+  const el = document.getElementById('filter-report');
+  if (!state.sourceWs){ el.textContent = 'ارفعي الملفين لعرض تقرير عدد الطلبات التي سيتم تصديرها'; return; }
+  const carrierText = document.getElementById('f-carrierFilter').value.trim();
+  const allowed = getAllowedStatuses();
+  const { totalDataRows, carrierMatchedCount, matched } = extractMatched(carrierText, allowed);
+  const carrierLabel = state.colMapSrc.carrier
+    ? `المطابقة لشركة الشحن "${carrierText}": <b>${carrierMatchedCount}</b>`
+    : `لا يوجد عمود شركة شحن في هذا الملف — تم تجاهل هذا الفلتر (${carrierMatchedCount} صف)`;
+  el.innerHTML = `إجمالي طلبات الملف: <b>${totalDataRows}</b> &nbsp;|&nbsp; ${carrierLabel} &nbsp;|&nbsp; سيتم تصديرها فعلياً بعد فلترة الحالة: <b style="color:var(--ok)">${matched.length}</b>`;
+}
+
+// Invalidates the row-by-row preview whenever a filter changes upstream, so the
+// exported data can never drift from what was actually reviewed on screen.
+function invalidatePreview(){
+  if (state.previewRows !== null){
+    state.previewRows = null;
+    document.getElementById('preview-wrap').innerHTML = '';
+    document.getElementById('preview-note').textContent = 'تغيّرت الفلترة — اضغطي "تحديث المعاينة" لعرض النتيجة الجديدة قبل التنفيذ.';
+  }
+  updateRunButtonState();
+}
+
+function buildPreview(){
+  if (!isDeliveryDateSet()){
+    refreshDateWarning();
+    document.getElementById('f-deliveryDate').focus();
+    return;
+  }
+  const carrierText = document.getElementById('f-carrierFilter').value.trim();
+  const allowed = getAllowedStatuses();
+  const { matched } = extractMatched(carrierText, allowed);
+  state.previewRows = matched.map(m => ({ ...m, include:true }));
+  renderPreviewTable();
+  updateRunButtonState();
+}
+
+function renderPreviewTable(){
+  const wrap = document.getElementById('preview-wrap');
+  const note = document.getElementById('preview-note');
+  const rows = state.previewRows || [];
+  if (rows.length === 0){
+    wrap.innerHTML = '<div class="preview-empty">لا توجد طلبات مطابقة لعرضها.</div>';
+    note.textContent = '';
+    return;
+  }
+  const includedCount = rows.filter(r => r.include).length;
+  note.textContent = `${includedCount} من ${rows.length} صف سيُصدَّر فعلياً.`;
+
+  const fieldCols = [
+    ['orderNo','رقم الطلب'], ['name','الاسم'], ['phone','الهاتف'], ['address','العنوان'],
+    ['district','الحي'], ['city','المدينة'], ['country','الدولة'], ['weight','الوزن'], ['qty','الكمية']
+  ];
+
+  let html = '<div class="preview-wrap"><table class="preview-table"><thead><tr>';
+  html += '<th>تضمين</th><th>ترتيب</th>';
+  fieldCols.forEach(([,label]) => { html += `<th>${label}</th>`; });
+  html += '<th>حذف</th></tr></thead><tbody>';
+
+  rows.forEach((r, i) => {
+    html += `<tr class="${r.include ? '' : 'excluded'}" data-idx="${i}">`;
+    html += `<td><input type="checkbox" class="pv-include" data-idx="${i}" ${r.include ? 'checked' : ''}></td>`;
+    html += `<td><button type="button" class="row-btn pv-up" data-idx="${i}" title="أعلى">↑</button><button type="button" class="row-btn pv-down" data-idx="${i}" title="أسفل">↓</button></td>`;
+    fieldCols.forEach(([key]) => {
+      const cls = key === 'address' ? ' addr-cell' : '';
+      const val = r[key] === null || r[key] === undefined ? '' : r[key];
+      html += `<td class="${cls}"><input type="text" class="pv-field" data-idx="${i}" data-field="${key}" value="${String(val).replace(/"/g,'&quot;')}"></td>`;
+    });
+    html += `<td><button type="button" class="row-btn del pv-del" data-idx="${i}" title="حذف">✕</button></td>`;
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('.pv-field').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const idx = parseInt(e.target.dataset.idx, 10);
+      const field = e.target.dataset.field;
+      let val = e.target.value;
+      if (field === 'weight'){ const n = parseFloat(val); val = isNaN(n) ? val : n; }
+      if (field === 'qty' || field === 'orderNo'){ const n = parseInt(val,10); val = isNaN(n) ? val : n; }
+      state.previewRows[idx][field] = val;
+    });
+  });
+  wrap.querySelectorAll('.pv-include').forEach(cb => {
+    cb.addEventListener('change', e => {
+      const idx = parseInt(e.target.dataset.idx, 10);
+      state.previewRows[idx].include = e.target.checked;
+      renderPreviewTable();
+      updateRunButtonState();
+    });
+  });
+  wrap.querySelectorAll('.pv-del').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const idx = parseInt(e.target.dataset.idx, 10);
+      state.previewRows.splice(idx, 1);
+      renderPreviewTable();
+      updateRunButtonState();
+    });
+  });
+  wrap.querySelectorAll('.pv-up').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const idx = parseInt(e.target.dataset.idx, 10);
+      if (idx > 0){
+        [state.previewRows[idx-1], state.previewRows[idx]] = [state.previewRows[idx], state.previewRows[idx-1]];
+        renderPreviewTable();
+      }
+    });
+  });
+  wrap.querySelectorAll('.pv-down').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const idx = parseInt(e.target.dataset.idx, 10);
+      if (idx < state.previewRows.length - 1){
+        [state.previewRows[idx+1], state.previewRows[idx]] = [state.previewRows[idx], state.previewRows[idx+1]];
+        renderPreviewTable();
+      }
+    });
+  });
+}
+
+document.getElementById('btn-preview').addEventListener('click', buildPreview);
+
+function setupDrop(dropId, inputId, handler){
+  const drop = document.getElementById(dropId);
+  const input = document.getElementById(inputId);
+  drop.addEventListener('click', ()=>input.click());
+  input.addEventListener('change', e=>{ if (e.target.files[0]) handler(e.target.files[0]); });
+  drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.classList.add('drag'); });
+  drop.addEventListener('dragleave', ()=> drop.classList.remove('drag'));
+  drop.addEventListener('drop', e=>{
+    e.preventDefault(); drop.classList.remove('drag');
+    if (e.dataTransfer.files[0]) handler(e.dataTransfer.files[0]);
+  });
+}
+
+setupDrop('drop-template','file-template', handleTemplateFile);
+setupDrop('drop-source','file-source', handleSourceFile);
+document.getElementById('f-carrierFilter').addEventListener('input', updateReport);
+
+// --- Saved sender (Ship From) profiles ---------------------------------
+// Typing/selecting a saved name auto-fills the rest of the Ship From fields.
+// Same warehouse/address for both — only the phone differs for ريفي.
+const SENDER_PROFILES = {
+  'تمرولة': { phone:'966566806179', address:'JRX4+P6R الجزيرة، الرياض', district:'حي الجزيرة', city:'الرياض', country:'SA' },
+  'ريفي': { phone:'966553704440', address:'JRX4+P6R الجزيرة، الرياض', district:'حي الجزيرة', city:'الرياض', country:'SA' },
+};
+
+function populateSenderList(){
+  const select = document.getElementById('f-shipName');
+  select.innerHTML = Object.keys(SENDER_PROFILES).map(n => `<option value="${n}">${n}</option>`).join('');
+}
+
+function applySenderProfile(){
+  const name = document.getElementById('f-shipName').value.trim();
+  const profile = SENDER_PROFILES[name];
+  if (!profile) return;
+  document.getElementById('f-shipPhone').value = profile.phone;
+  document.getElementById('f-shipAddress').value = profile.address;
+  document.getElementById('f-shipDistrict').value = profile.district;
+  document.getElementById('f-shipCity').value = profile.city;
+  document.getElementById('f-shipCountry').value = profile.country;
+}
+
+populateSenderList();
+document.getElementById('f-shipName').addEventListener('change', applySenderProfile);
+applySenderProfile(); // apply default (first option) values on load
+
+// Delivery date is intentionally left empty and must be entered manually by the
+// employee for every run — no auto-fill with today's date.
+function isDeliveryDateSet(){
+  return !!document.getElementById('f-deliveryDate').value;
+}
+
+function refreshDateWarning(){
+  const warn = document.getElementById('date-warning');
+  const input = document.getElementById('f-deliveryDate');
+  const bothFilesLoaded = state.templateWs && state.sourceWs;
+  const missing = bothFilesLoaded && !isDeliveryDateSet();
+  warn.style.display = missing ? 'block' : 'none';
+  input.classList.toggle('invalid', missing);
+}
+
+document.getElementById('f-deliveryDate').addEventListener('input', () => {
+  refreshDateWarning();
+  maybeEnableRun();
+});
+
+const COUNTRY_MAP = { "Saudi Arabia": "SA", "السعودية": "SA" };
+
+// Normalizes Saudi phone numbers regardless of source format:
+// handles '+966...', '966...', '05XXXXXXXX', '5XXXXXXXX' (leading 0/country code lost by Excel number formatting)
+function normalizePhone(v){
+  if (v === null || v === undefined || v === '') return null;
+  let s = String(v).replace(/\D/g, '');
+  if (!s) return null;
+  if (s.startsWith('00')) s = s.slice(2);
+  if (s.startsWith('966')) return s;
+  if (s.startsWith('0')) s = s.slice(1);
+  return '966' + s;
+}
+
+document.getElementById('btn-run').addEventListener('click', async () => {
+  clearStatus();
+  const btn = document.getElementById('btn-run');
+  if (!isDeliveryDateSet()){
+    refreshDateWarning();
+    document.getElementById('f-deliveryDate').focus();
+    setStatus('لا يمكن إكمال العملية بدون تحديد تاريخ التسليم.', 'err');
+    return;
+  }
+  btn.disabled = true;
+  document.getElementById('download-box').style.display = 'none';
+  try{
+    const ws = state.templateWs;
+    const colMap = state.colMapTpl;
+    const scol = state.colMapSrc;
+
+    if (!scol.orderNo || !scol.address){
+      setStatus('تعذر إيجاد أعمدة أساسية في ملف المصدر (رقم الطلب / عنوان العميل). تحققي من رؤوس الأعمدة.', 'err');
+      btn.disabled = false; return;
+    }
+
+    const deliveryDateVal = document.getElementById('f-deliveryDate').value;
+    const deliveryDate = deliveryDateVal ? new Date(deliveryDateVal) : new Date();
+    const afterTime = excelTimeToDate(document.getElementById('f-afterTime').value);
+    const beforeTime = excelTimeToDate(document.getElementById('f-beforeTime').value);
+    const mode = document.getElementById('f-mode').value;
+    const type = document.getElementById('f-type').value;
+    const shipName = document.getElementById('f-shipName').value;
+    const shipPhone = document.getElementById('f-shipPhone').value;
+    const shipAddress = document.getElementById('f-shipAddress').value;
+    const shipDistrict = document.getElementById('f-shipDistrict').value;
+    const shipCity = document.getElementById('f-shipCity').value;
+    const shipCountry = document.getElementById('f-shipCountry').value;
+
+    if (!Array.isArray(state.previewRows)){
+      setStatus('اضغطي "تحديث المعاينة" ثم راجعي البيانات قبل التنفيذ.', 'err');
+      btn.disabled = false; return;
+    }
+    const matched = state.previewRows.filter(r => r.include);
+
+    setStatus(`الصفوف المُضمَّنة من المعاينة: <b>${matched.length}</b> من أصل ${state.previewRows.length}`, matched.length? 'ok':'warn');
+
+    if (matched.length === 0){
+      setStatus('لا توجد صفوف مضمَّنة للتصدير — تحققي من تحديد المربعات في جدول المعاينة.', 'err');
+      btn.disabled = false; return;
+    }
+
+    // The template's header might not be row 1 (detected earlier), so the first
+    // data row — and therefore the style/formatting to copy — is right after it.
+    const tplHeaderRow = state.tplHeaderRow || 1;
+    const firstDataRow = tplHeaderRow + 1;
+
+    // capture style template from an existing data row if present, else the header row
+    const styleSourceRowNum = ws.actualRowCount >= firstDataRow ? firstDataRow : tplHeaderRow;
+    const styleRow = ws.getRow(styleSourceRowNum);
+    const colCount = ws.columnCount || ws.getRow(tplHeaderRow).cellCount;
+    const styles = {};
+    for (let c=1; c<=colCount; c++){
+      const cell = styleRow.getCell(c);
+      styles[c] = { font: cell.font, numFmt: cell.numFmt, fill: cell.fill, border: cell.border, alignment: cell.alignment };
+    }
+
+    const clearMode = document.getElementById('f-clearMode').value;
+    let startRow = firstDataRow;
+    if (clearMode === 'clear'){
+      const lastRow = ws.actualRowCount;
+      for (let r=firstDataRow; r<=lastRow; r++){
+        const row = ws.getRow(r);
+        row.eachCell({includeEmpty:true}, cell => { cell.value = null; });
+      }
+      startRow = firstDataRow;
+    } else {
+      startRow = Math.max(ws.actualRowCount + 1, firstDataRow);
+    }
+
+    matched.forEach((o, idx) => {
+      const r = startRow + idx;
+      const set = (key, val) => {
+        const c = colMap[key];
+        if (!c) return;
+        ws.getRow(r).getCell(c).value = val;
+      };
+      set('merchant', 80);
+      set('deliveryDate', deliveryDate);
+      set('afterTime', afterTime);
+      set('beforeTime', beforeTime);
+      set('deliveryMode', mode);
+      set('deliveryType', type);
+      set('cod', 0);
+      set('orderNumber', o.orderNo);
+      set('quantity', o.qty);
+      set('weight', o.weight);
+      set('sms', true);
+      set('name', o.name);
+      set('phone', o.phone);
+      set('address', o.address);
+      set('district', o.district);
+      set('city', o.city);
+      set('country', o.country);
+      set('shipName', shipName || null);
+      set('shipPhone', shipPhone && /^\d+$/.test(shipPhone) ? parseInt(shipPhone,10) : (shipPhone || null));
+      set('shipAddress', shipAddress || null);
+      set('shipDistrict', shipDistrict || null);
+      set('shipCity', shipCity || null);
+      set('shipCountry', shipCountry || null);
+
+      for (let c=1; c<=colCount; c++){
+        const cell = ws.getRow(r).getCell(c);
+        const st = styles[c];
+        if (st){
+          if (st.font) cell.font = st.font;
+          if (st.numFmt) cell.numFmt = st.numFmt;
+          if (st.fill) cell.fill = st.fill;
+          if (st.border) cell.border = st.border;
+          if (st.alignment) cell.alignment = st.alignment;
+        }
+      }
+
+      // Force an unambiguous, locale-independent format on the date/time columns
+      // regardless of whatever format happened to be copied from the template's
+      // example row. A drifted format here (e.g. a short "mm-dd-yy" date format
+      // picked up from a previously re-saved file) is what caused the receiving
+      // system's DateTimeParseException on values like "7/7/26".
+      if (colMap.deliveryDate) ws.getRow(r).getCell(colMap.deliveryDate).numFmt = 'yyyy-mm-dd';
+      if (colMap.afterTime) ws.getRow(r).getCell(colMap.afterTime).numFmt = 'hh:mm';
+      if (colMap.beforeTime) ws.getRow(r).getCell(colMap.beforeTime).numFmt = 'hh:mm';
+    });
+
+    const buf = await state.templateWb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const link = document.getElementById('download-link');
+    link.href = url;
+    const todayStamp = new Date().toISOString().slice(0,10);
+    link.download = `ترانسكوب_${todayStamp}.xlsx`;
+    document.getElementById('download-box').style.display = 'flex';
+    setStatus('تمت تعبئة الملف بنجاح.', 'ok');
+  } catch(e){
+    console.error(e);
+    setStatus('حدث خطأ أثناء المعالجة: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
